@@ -129,16 +129,13 @@ def show_countries(chat_id, service):
     bot.send_message(chat_id, f"⚡ **{service.upper()}**-এর জন্য কান্ট্রি সিলেক্ট করুন:", reply_markup=markup, parse_mode="Markdown")
 
 # ---------------------------------------------------------
-# 🎯 ওটিপি পোলিং সিস্টেম (ডাইনামিক number_id ভিত্তিক)
+# 🎯 ওটিপি পোলিং সিস্টেম (ডাইনামিক number_id ভিত্তিক ও লাইভ লগসহ)
 # ---------------------------------------------------------
 def poll_for_otp(chat_id, number_id, number):
-    # কারেন্ট ইউজারের সেশনে এই নির্দিষ্ট আইডিটি সেট করে দেওয়া হলো
     active_user_sessions[chat_id] = number_id
     
     # ৬০ বার ট্রাই করবে (২ সেকেন্ড পর পর = ১২০ সেকেন্ড)
     for _ in range(60):
-        # ইউজার যদি রিফ্রেশ বাটনে ক্লিক করে নতুন নাম্বারের জন্য রিকোয়েস্ট দেয়, 
-        # তবে সেশনের আইডি বদলে যাবে এবং এই আগের লুপটি সাথে সাথে বন্ধ হয়ে যাবে।
         if active_user_sessions.get(chat_id) != number_id:
             print(f"[POLLING] Stopped old polling for user {chat_id} on number {number}")
             return
@@ -149,7 +146,7 @@ def poll_for_otp(chat_id, number_id, number):
             response_raw = requests.get(url, headers=HEADERS, timeout=8)
             response = response_raw.json()
             
-            # টার্মিনাল লগিং (ডিবাগ করার জন্য)
+            # Render কনসোলে লাইভ ওটিপি ডিবাগ দেখার জন্য প্রিন্ট
             print("Polling URL:", url)
             print("Response:", response)
             
@@ -196,7 +193,6 @@ def request_and_process_number(chat_id, service, country):
     try:
         range_prefix = SERVICES_DATA[service]["countries"][country]["range"]
         
-        # ডক অনুযায়ী ক্লিয়ার পেলোড (ইঞ্জিন ১ সহ)
         req_data = {
             "service": service, 
             "country": country,
@@ -207,7 +203,7 @@ def request_and_process_number(chat_id, service, country):
         
         if r and r.get("success") is True:
             number = r["number"]
-            number_id = r["number_id"] # এখানে এপিআই থেকে আসা রিয়েল-টাইম ইউনিক আইডি রিসিভ হচ্ছে
+            number_id = r["number_id"]
             
             markup = types.InlineKeyboardMarkup()
             refresh_btn = types.InlineKeyboardButton("🔄 Refresh / New Number", callback_data=f"refresh_{service}_{country}")
@@ -221,7 +217,6 @@ def request_and_process_number(chat_id, service, country):
                 parse_mode="Markdown"
             )
             
-            # প্রাপ্ত ডাইনামিক number_id টিকেই পোলিংয়ে পাস করা হলো
             t = threading.Thread(target=poll_for_otp, args=(chat_id, number_id, number))
             t.daemon = True
             t.start()
@@ -239,7 +234,6 @@ def callback_handler(call):
     chat_id = call.message.chat.id
     data = call.data
 
-    # --- এডমিন অ্যাকশনসমূহ ---
     if data == "adm_create_service" and is_admin(chat_id):
         user_steps[chat_id] = "waiting_new_service"
         bot.send_message(chat_id, "📝 নতুন সার্ভিসের নাম লিখুন (যেমন: `google`, `telegram`):")
@@ -353,7 +347,7 @@ def callback_handler(call):
 # 🚀 রানার
 # ---------------------------------------------------------
 if __name__ == "__main__":
-    print("SHxNumber Zone Bot is strictly running on dynamic API response mapping...")
+    print("SHxNumber Zone Bot is successfully deployed...")
     while True:
         try:
             bot.infinity_polling(timeout=20, long_polling_timeout=10)
